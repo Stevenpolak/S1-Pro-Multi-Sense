@@ -52,7 +52,7 @@ _BASE_SCHEMA = cv.Schema({
 
 # Then add sensor fields dynamically
 for key in SENSOR_KEYS:
-    _BASE_SCHEMA = _BASE_SCHEMA.extend({cv.Required(key): sensor.sensor_schema()})
+    _BASE_SCHEMA = _BASE_SCHEMA.extend({cv.Required(key): sensor.SENSOR_SCHEMA})
 
 # Final schema
 CONFIG_SCHEMA = _BASE_SCHEMA

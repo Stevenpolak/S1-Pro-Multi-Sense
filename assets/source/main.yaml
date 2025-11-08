@@ -1,13 +1,9 @@
 esphome:
   name: "s1-pro-multi-sense"
   friendly_name: "S1 Pro Multi Sense"
-  describtion: "Multi sensor by Sensy-one"
+  comment: "Multi sensor by Sensy-one"
   name_add_mac_suffix: true
   
-  ## Change this to your own hostname!!
-  ## Hostname can be found in a diagnostics sensor
-  use_address: "s1-pro-multi-sense-12ab34.local"
-
   project:
     name: "Sensy-One.S1 Pro Multi Sense"
     version: "v1.1.11"
@@ -74,6 +70,10 @@ wifi:
   ap:
     ssid: "I am Sensy!"
     ap_timeout: 1min
+  ## Change this to your own hostname!!
+  ## Hostname can be found in a diagnostics sensor
+  use_address: "s1-pro-multi-sense-12ab34.local"
+
 
 captive_portal: 
 

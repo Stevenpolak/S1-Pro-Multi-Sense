@@ -1,7 +1,13 @@
 esphome:
   name: "s1-pro-multi-sense"
   friendly_name: "S1 Pro Multi Sense"
+  describtion: "Multi sensor by Sensy-one"
   name_add_mac_suffix: true
+  
+  ## Change this to your own hostname!!
+  ## Hostname can be found in a diagnostics sensor
+  use_address: "s1-pro-multi-sense-12ab34.local"
+
   project:
     name: "Sensy-One.S1 Pro Multi Sense"
     version: "v1.1.11"
@@ -47,8 +53,15 @@ script:
 
 external_components:
   - source:
-      type: local
-      path: components
+#      type: local
+#      path: components
+      type: git
+      url: https://github.com/sensy-one/S1-Pro-Multi-Sense
+      path: assets/source/components/s1_pro
+
+dashboard_import:
+  package_import_url: github://sensy-one/S1-Pro-Multi-Sense/blob/main/assets/source/main.yaml
+  import_full_config: true
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -82,6 +95,7 @@ api:
 
 ota:
   - platform: web_server
+  - platform: esphome
 
 web_server:
   version: 3
@@ -2090,6 +2104,17 @@ text_sensor:
       name: "ESP32 | IP"
       entity_category: diagnostic
       icon: mdi:ip-network
+    
+  # mDNS Address - dynamically generated from hostname    
+  - platform: template
+    name: "mDNS Address"
+    id: mdns_address
+    entity_category: "diagnostic"
+    icon: "mdi:dns"
+    update_interval: 60min
+    lambda: |-
+      std::string hostname = App.get_name();
+      return hostname + ".local";
 
   - platform: wifi_info
     ssid:

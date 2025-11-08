@@ -30,13 +30,12 @@ SENSOR_KEYS = [
     "target3_x", "target3_y", "target3_angle", "target3_speed", "target3_distance",
 ]
 
-CONFIG_SCHEMA = cv.Schema({
+# Start with base schema
+_BASE_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(LD2450),
     cv.Required(CONF_UART_ID): cv.use_id(uart.UARTComponent),
-    **{cv.Required(key): sensor.SENSOR_SCHEMA for key in SENSOR_KEYS},
     cv.Required(CONF_DETECTION_RANGE): cv.use_id(number.Number),
     cv.Required(CONF_FLIP_Y): cv.use_id(_switch.Switch),
-    cv.Required(CONF_TRACKING_MODE): text_sensor.TEXT_SENSOR_SCHEMA,
     cv.Optional(CONF_BLUETOOTH_STATE): text_sensor.TEXT_SENSOR_SCHEMA,
     cv.Optional(CONF_TARGET1_STATE): text_sensor.TEXT_SENSOR_SCHEMA,
     cv.Optional(CONF_TARGET2_STATE): text_sensor.TEXT_SENSOR_SCHEMA,
@@ -49,8 +48,16 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Optional(CONF_DROPOUT_HOLD_M): cv.use_id(number.Number),
     cv.Optional(CONF_DROPOUT_HOLD_S): cv.use_id(number.Number),
     cv.Optional(CONF_HOLDING_ENABLED): cv.use_id(_switch.Switch),
+})
 
-}).extend(cv.COMPONENT_SCHEMA).extend(uart.UART_DEVICE_SCHEMA)
+# Then add sensor fields dynamically
+for key in SENSOR_KEYS:
+    _BASE_SCHEMA = _BASE_SCHEMA.extend({cv.Required(key): sensor.sensor_schema()})
+
+# Final schema
+CONFIG_SCHEMA = _BASE_SCHEMA
+
+
 
 async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID])

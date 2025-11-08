@@ -33,7 +33,7 @@ SENSOR_KEYS = [
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(LD2450),
     cv.Required(CONF_UART_ID): cv.use_id(uart.UARTComponent),
-    **{cv.Required(key): sensor.sensor_schema() for key in SENSOR_KEYS},
+    **{cv.Required(key): cv.sensor_schema() for key in SENSOR_KEYS},
     cv.Required(CONF_DETECTION_RANGE): cv.use_id(number.Number),
     cv.Required(CONF_FLIP_Y): cv.use_id(_switch.Switch),
     cv.Required(CONF_TRACKING_MODE): text_sensor.text_sensor_schema(),

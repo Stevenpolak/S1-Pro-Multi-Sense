@@ -26,47 +26,47 @@ CONF_DROPOUT_HOLD_M = "dropout_hold_m"
 CONF_DROPOUT_HOLD_S = "dropout_hold_s"
 CONF_HOLDING_ENABLED = "holding_enabled"
 
-
 SENSOR_KEYS = [
     "target1_x", "target1_y", "target1_angle", "target1_speed", "target1_distance",
     "target2_x", "target2_y", "target2_angle", "target2_speed", "target2_distance",
     "target3_x", "target3_y", "target3_angle", "target3_speed", "target3_distance",
 ]
 
-# Build base schema WITHOUT sensor fields (to avoid circular import at module load)
-_BASE_CONFIG_SCHEMA = cv.Schema({
-    cv.GenerateID(): cv.declare_id(LD2450),
-    cv.Required(CONF_UART_ID): cv.use_id(uart.UARTComponent),
-    cv.Required(CONF_DETECTION_RANGE): cv.use_id(number.Number),
-    cv.Required(CONF_FLIP_Y): cv.use_id(_switch.Switch),
-    cv.Optional(CONF_EXCLUSION_ZONE_POINTS_COUNT): cv.use_id(number.Number),
-    **{cv.Optional(key): cv.use_id(number.Number) for key in EXCLUSION_ZONE_KEYS},
-    cv.Optional(CONF_GATE_RADIUS_CM): cv.use_id(number.Number),
-    cv.Optional(CONF_STATIONARY_SPEED_THRESH): cv.use_id(number.Number),
-    cv.Optional(CONF_STATIONARY_TIME_S): cv.use_id(number.Number),
-    cv.Optional(CONF_DROPOUT_HOLD_M): cv.use_id(number.Number),
-    cv.Optional(CONF_DROPOUT_HOLD_S): cv.use_id(number.Number),
-    cv.Optional(CONF_HOLDING_ENABLED): cv.use_id(_switch.Switch),
-})
 
-# Use a validation function to add sensor/text_sensor schemas dynamically
-def _validate_config(config):
-    """Validate and add sensor schemas after imports are complete"""
-    return config
-
-# Build the final schema by extending with sensor/text_sensor fields
-# This happens lazily when the schema is actually used (after imports complete)
-CONFIG_SCHEMA = cv.All(
-    _BASE_CONFIG_SCHEMA.extend({
+def _base_schema():
+    """Build schema dynamically to avoid circular import"""
+    schema_dict = {
+        cv.GenerateID(): cv.declare_id(LD2450),
+        cv.Required(CONF_UART_ID): cv.use_id(uart.UARTComponent),
+        cv.Required(CONF_DETECTION_RANGE): cv.use_id(number.Number),
+        cv.Required(CONF_FLIP_Y): cv.use_id(_switch.Switch),
         cv.Required(CONF_TRACKING_MODE): text_sensor.text_sensor_schema(),
         cv.Optional(CONF_BLUETOOTH_STATE): text_sensor.text_sensor_schema(),
         cv.Optional(CONF_TARGET1_STATE): text_sensor.text_sensor_schema(),
         cv.Optional(CONF_TARGET2_STATE): text_sensor.text_sensor_schema(),
         cv.Optional(CONF_TARGET3_STATE): text_sensor.text_sensor_schema(),
-        **{cv.Required(key): sensor.sensor_schema() for key in SENSOR_KEYS},
-    }),
-    _validate_config
-)
+        cv.Optional(CONF_EXCLUSION_ZONE_POINTS_COUNT): cv.use_id(number.Number),
+        cv.Optional(CONF_GATE_RADIUS_CM): cv.use_id(number.Number),
+        cv.Optional(CONF_STATIONARY_SPEED_THRESH): cv.use_id(number.Number),
+        cv.Optional(CONF_STATIONARY_TIME_S): cv.use_id(number.Number),
+        cv.Optional(CONF_DROPOUT_HOLD_M): cv.use_id(number.Number),
+        cv.Optional(CONF_DROPOUT_HOLD_S): cv.use_id(number.Number),
+        cv.Optional(CONF_HOLDING_ENABLED): cv.use_id(_switch.Switch),
+    }
+    
+    # Add exclusion zone keys
+    for key in EXCLUSION_ZONE_KEYS:
+        schema_dict[cv.Optional(key)] = cv.use_id(number.Number)
+    
+    # Add sensor keys
+    for key in SENSOR_KEYS:
+        schema_dict[cv.Required(key)] = sensor.sensor_schema()
+    
+    return cv.Schema(schema_dict)
+
+
+# Use lambda to defer schema building until validation time
+CONFIG_SCHEMA = cv.Schema(lambda config: _base_schema()(config))
 
 
 async def to_code(config):

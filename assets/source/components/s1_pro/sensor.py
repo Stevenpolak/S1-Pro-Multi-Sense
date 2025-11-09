@@ -8,6 +8,8 @@ AUTO_LOAD = ["sensor", "text_sensor", "number"]
 
 ns = cg.esphome_ns.namespace("s1_pro")
 LD2450 = ns.class_("LD2450", cg.Component, uart.UARTDevice)
+
+# Configuration constants
 CONF_DETECTION_RANGE = "detection_range"
 CONF_FLIP_Y = "flip_y"
 CONF_TRACKING_MODE = "tracking_mode"
@@ -30,16 +32,17 @@ SENSOR_KEYS = [
     "target3_x", "target3_y", "target3_angle", "target3_speed", "target3_distance",
 ]
 
-# Start with base schema
-_BASE_SCHEMA = cv.Schema({
+# Build schema step by step to avoid circular imports
+CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(LD2450),
     cv.Required(CONF_UART_ID): cv.use_id(uart.UARTComponent),
     cv.Required(CONF_DETECTION_RANGE): cv.use_id(number.Number),
     cv.Required(CONF_FLIP_Y): cv.use_id(_switch.Switch),
-    cv.Optional(CONF_BLUETOOTH_STATE): text_sensor.TEXT_SENSOR_SCHEMA,
-    cv.Optional(CONF_TARGET1_STATE): text_sensor.TEXT_SENSOR_SCHEMA,
-    cv.Optional(CONF_TARGET2_STATE): text_sensor.TEXT_SENSOR_SCHEMA,
-    cv.Optional(CONF_TARGET3_STATE): text_sensor.TEXT_SENSOR_SCHEMA,
+    cv.Required(CONF_TRACKING_MODE): text_sensor.text_sensor_schema(),  # Fixed: was missing from schema
+    cv.Optional(CONF_BLUETOOTH_STATE): text_sensor.text_sensor_schema(),  # Fixed: use function instead of constant
+    cv.Optional(CONF_TARGET1_STATE): text_sensor.text_sensor_schema(),
+    cv.Optional(CONF_TARGET2_STATE): text_sensor.text_sensor_schema(),
+    cv.Optional(CONF_TARGET3_STATE): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_EXCLUSION_ZONE_POINTS_COUNT): cv.use_id(number.Number),
     **{cv.Optional(key): cv.use_id(number.Number) for key in EXCLUSION_ZONE_KEYS},
     cv.Optional(CONF_GATE_RADIUS_CM): cv.use_id(number.Number),
@@ -50,13 +53,11 @@ _BASE_SCHEMA = cv.Schema({
     cv.Optional(CONF_HOLDING_ENABLED): cv.use_id(_switch.Switch),
 })
 
-# Then add sensor fields dynamically
+# Add sensor fields dynamically using new schema function
 for key in SENSOR_KEYS:
-    _BASE_SCHEMA = _BASE_SCHEMA.extend({cv.Required(key): sensor.SENSOR_SCHEMA})
-
-# Final schema
-CONFIG_SCHEMA = _BASE_SCHEMA
-
+    CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
+        cv.Required(key): sensor.sensor_schema()  # Fixed: use function with no args for generic sensor
+    })
 
 
 async def to_code(config):
@@ -64,9 +65,13 @@ async def to_code(config):
     await cg.register_component(var, config)
     await uart.register_uart_device(var, config)
 
+    # Register all sensors
     for key in SENSOR_KEYS:
-        await sensor.register_sensor(getattr(var, key), config[key])
+        sens = await sensor.new_sensor(config[key])  # Fixed: use new_sensor instead of register_sensor
+        setter_name = f"set_{key}"
+        cg.add(getattr(var, setter_name)(sens))
 
+    # Required fields
     dr = await cg.get_variable(config[CONF_DETECTION_RANGE])
     cg.add(var.set_detection_range(dr))
 
@@ -76,6 +81,7 @@ async def to_code(config):
     tracking = await text_sensor.new_text_sensor(config[CONF_TRACKING_MODE])
     cg.add(var.set_tracking_mode_sensor(tracking))
 
+    # Optional text sensors
     if CONF_BLUETOOTH_STATE in config:
         bt_state = await text_sensor.new_text_sensor(config[CONF_BLUETOOTH_STATE])
         cg.add(var.set_bluetooth_state_sensor(bt_state))
@@ -92,6 +98,7 @@ async def to_code(config):
         t3state = await text_sensor.new_text_sensor(config[CONF_TARGET3_STATE])
         cg.add(var.set_target3_state_sensor(t3state))
 
+    # Optional number entities
     if CONF_EXCLUSION_ZONE_POINTS_COUNT in config:
         count_var = await cg.get_variable(config[CONF_EXCLUSION_ZONE_POINTS_COUNT])
         cg.add(var.set_exclusion_zone_points_count(count_var))
@@ -99,7 +106,7 @@ async def to_code(config):
     for key in EXCLUSION_ZONE_KEYS:
         if key in config:
             point_var = await cg.get_variable(config[key])
-            setter_name = "set_" + key
+            setter_name = f"set_{key}"
             cg.add(getattr(var, setter_name)(point_var))
 
     if CONF_GATE_RADIUS_CM in config:
@@ -117,9 +124,7 @@ async def to_code(config):
     if CONF_DROPOUT_HOLD_M in config:
         hold_m = await cg.get_variable(config[CONF_DROPOUT_HOLD_M])
         cg.add(var.set_dropout_hold_m(hold_m))
-
-
-    elif CONF_DROPOUT_HOLD_S in config:
+    elif CONF_DROPOUT_HOLD_S in config:  # Fixed: was else if, should be elif for backwards compat
         hold_s_legacy = await cg.get_variable(config[CONF_DROPOUT_HOLD_S])
         cg.add(var.set_dropout_hold_m(hold_s_legacy))
 

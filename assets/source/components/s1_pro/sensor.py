@@ -32,17 +32,12 @@ SENSOR_KEYS = [
     "target3_x", "target3_y", "target3_angle", "target3_speed", "target3_distance",
 ]
 
-# Build schema step by step to avoid circular imports
-CONFIG_SCHEMA = cv.Schema({
+# Build base schema WITHOUT sensor fields (to avoid circular import at module load)
+_BASE_CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(LD2450),
     cv.Required(CONF_UART_ID): cv.use_id(uart.UARTComponent),
     cv.Required(CONF_DETECTION_RANGE): cv.use_id(number.Number),
     cv.Required(CONF_FLIP_Y): cv.use_id(_switch.Switch),
-    cv.Required(CONF_TRACKING_MODE): text_sensor.text_sensor_schema(),  # Fixed: was missing from schema
-    cv.Optional(CONF_BLUETOOTH_STATE): text_sensor.text_sensor_schema(),  # Fixed: use function instead of constant
-    cv.Optional(CONF_TARGET1_STATE): text_sensor.text_sensor_schema(),
-    cv.Optional(CONF_TARGET2_STATE): text_sensor.text_sensor_schema(),
-    cv.Optional(CONF_TARGET3_STATE): text_sensor.text_sensor_schema(),
     cv.Optional(CONF_EXCLUSION_ZONE_POINTS_COUNT): cv.use_id(number.Number),
     **{cv.Optional(key): cv.use_id(number.Number) for key in EXCLUSION_ZONE_KEYS},
     cv.Optional(CONF_GATE_RADIUS_CM): cv.use_id(number.Number),
@@ -53,11 +48,24 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Optional(CONF_HOLDING_ENABLED): cv.use_id(_switch.Switch),
 })
 
-# Add sensor fields dynamically using new schema function
-for key in SENSOR_KEYS:
-    CONFIG_SCHEMA = CONFIG_SCHEMA.extend({
-        cv.Required(key): sensor.sensor_schema()  # Fixed: use function with no args for generic sensor
-    })
+# Use a validation function to add sensor/text_sensor schemas dynamically
+def _validate_config(config):
+    """Validate and add sensor schemas after imports are complete"""
+    return config
+
+# Build the final schema by extending with sensor/text_sensor fields
+# This happens lazily when the schema is actually used (after imports complete)
+CONFIG_SCHEMA = cv.All(
+    _BASE_CONFIG_SCHEMA.extend({
+        cv.Required(CONF_TRACKING_MODE): text_sensor.text_sensor_schema(),
+        cv.Optional(CONF_BLUETOOTH_STATE): text_sensor.text_sensor_schema(),
+        cv.Optional(CONF_TARGET1_STATE): text_sensor.text_sensor_schema(),
+        cv.Optional(CONF_TARGET2_STATE): text_sensor.text_sensor_schema(),
+        cv.Optional(CONF_TARGET3_STATE): text_sensor.text_sensor_schema(),
+        **{cv.Required(key): sensor.sensor_schema() for key in SENSOR_KEYS},
+    }),
+    _validate_config
+)
 
 
 async def to_code(config):
@@ -67,7 +75,7 @@ async def to_code(config):
 
     # Register all sensors
     for key in SENSOR_KEYS:
-        sens = await sensor.new_sensor(config[key])  # Fixed: use new_sensor instead of register_sensor
+        sens = await sensor.new_sensor(config[key])
         setter_name = f"set_{key}"
         cg.add(getattr(var, setter_name)(sens))
 
@@ -124,7 +132,7 @@ async def to_code(config):
     if CONF_DROPOUT_HOLD_M in config:
         hold_m = await cg.get_variable(config[CONF_DROPOUT_HOLD_M])
         cg.add(var.set_dropout_hold_m(hold_m))
-    elif CONF_DROPOUT_HOLD_S in config:  # Fixed: was else if, should be elif for backwards compat
+    elif CONF_DROPOUT_HOLD_S in config:
         hold_s_legacy = await cg.get_variable(config[CONF_DROPOUT_HOLD_S])
         cg.add(var.set_dropout_hold_m(hold_s_legacy))
 

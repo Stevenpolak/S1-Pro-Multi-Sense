@@ -26,6 +26,7 @@ CONF_DROPOUT_HOLD_M = "dropout_hold_m"
 CONF_DROPOUT_HOLD_S = "dropout_hold_s"
 CONF_HOLDING_ENABLED = "holding_enabled"
 
+
 SENSOR_KEYS = [
     "target1_x", "target1_y", "target1_angle", "target1_speed", "target1_distance",
     "target2_x", "target2_y", "target2_angle", "target2_speed", "target2_distance",
